@@ -267,7 +267,19 @@ class KerapuSunuDetector(QMainWindow):
                 
                 # Threshold Kecerahan (V)
                 _, spot_value_mask = cv2.threshold(v, 200, 255, cv2.THRESH_BINARY)
-                spot_value_mask = cv2.medianBlur(spot_value_mask, 3) 
+                v_roi = v.copy() # Ambil komponen V dari ROI ikan
+
+                # Terapkan Adaptive Thresholding pada komponen V (v_roi)
+                # Gunakan metode Gaussian untuk hasil yang lebih halus
+                spot_value_mask_adaptif = cv2.adaptiveThreshold(
+                    v_roi, 
+                    255,                                     # Nilai maksimum
+                    cv2.ADAPTIVE_THRESH_GAUSSIAN_C,          # Metode: Gaussian
+                    cv2.THRESH_BINARY,                       # Jenis threshold
+                    11,                                      # Ukuran blok (harus ganjil: 3, 5, 7, ...)
+                    -2                                       # Nilai C (konstanta yang dikurangkan dari mean/rata-rata)
+                )
+                spot_value_mask = cv2.medianBlur(spot_value_mask_adaptif, 3) 
                 
                 # --- PERBAIKAN: Masking Ganda untuk memastikan bintik di dalam tubuh ikan ---
                 # Ambil ROI dari mask ikan yang sudah ditutup lubangnya
