@@ -345,40 +345,137 @@ class KerapuSunuDetector(QMainWindow):
     # --- Fungsi Generate Laporan HTML (SAMA) ---
 
     def generate_report(self):
+        # Memastikan data yang diperlukan sudah tersedia sebelum membuat laporan
         if self.original_image is None or self.detected_img is None:
             QMessageBox.warning(self, "Perhatian", "Mohon proses deteksi terlebih dahulu.")
             return
 
-        MIN_TOTAL_SPOT_AREA_PERCENT = 1.0  
-        MAX_AREA_PER_SPOT_PERCENT = 0.5    
-        MIN_AREA_PER_SPOT_PERCENT = 0.01   
+        # Ambil konstanta dan hasil yang digunakan dalam proses deteksi
+        # Menggunakan nilai default jika variabel tidak ada (untuk robustness)
+        MIN_TOTAL_SPOT_AREA_PERCENT = getattr(self, 'MIN_TOTAL_SPOT_AREA_PERCENT', 1.0)
+        MAX_AREA_PER_SPOT_PERCENT = getattr(self, 'MAX_AREA_PER_SPOT_PERCENT', 0.5)
+        MIN_AREA_PER_SPOT_PERCENT = getattr(self, 'MIN_AREA_PER_SPOT_PERCENT', 0.01)
         
+        # Mendapatkan hasil akhir dan persentase bintik
+        result_text_final = getattr(self, 'result_text_string', 'Analisis tidak dijalankan.')
+        current_spot_percent = getattr(self, 'current_spot_percent', 0.0)
+
+        # 1. Konversi semua citra langkah proses ke Base64
         img_a = self.cv_to_base64(self.original_image)
-        img_b = self.cv_to_base64(self.processed_step_b)
+        img_b = self.cv_to_base64(self.processed_step_b) 
         img_c = self.cv_to_base64(self.processed_step_c) 
         img_d = self.cv_to_base64(self.processed_step_d) 
+        
+        # Asumsi: processed_step_e adalah visualisasi bintik (berasal dari deteksi kecerahan/kontur)
         img_e = self.cv_to_base64(self.processed_step_e) 
         img_f = self.cv_to_base64(self.detected_img)     
+        
+        # 2. Susun Konten Laporan HTML dengan CSS Baru
         
         html_content = f"""
         <!DOCTYPE html>
         <html>
         <head>
-            <title>Laporan Proyek Deteksi Kerapu Sunu (6 Langkah Visual)</title>
+            <title>Laporan Deteksi Ikan Kerapu Sunu</title>
             <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
             <style>
-                /* CSS SAMA */
+                :root {{
+                    --primary-color: #00796b; /* Dark Teal */
+                    --secondary-color: #004d40; /* Darker Teal */
+                    --accent-color: #ff9800; /* Orange/Amber */
+                    --background-light: #f4f6f8;
+                }}
+                body {{ 
+                    font-family: 'Open Sans', sans-serif; 
+                    margin: 0; 
+                    padding: 0;
+                    background-color: var(--background-light);
+                    line-height: 1.6;
+                }}
+                .container {{
+                    max-width: 1100px;
+                    margin: 40px auto;
+                    padding: 40px;
+                    background-color: white;
+                    border-radius: 12px;
+                    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
+                }}
+                h1 {{ 
+                    color: var(--secondary-color); 
+                    border-bottom: 4px solid var(--primary-color); 
+                    padding-bottom: 15px; 
+                    text-align: center;
+                    font-weight: 800;
+                    margin-bottom: 40px;
+                }}
+                h2 {{ 
+                    color: var(--primary-color); 
+                    margin-top: 30px;
+                    border-left: 5px solid var(--accent-color);
+                    padding-left: 15px;
+                    font-weight: 700;
+                }}
+                .step {{ 
+                    margin-bottom: 40px; 
+                    padding: 20px;
+                    border-radius: 8px;
+                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+                    background-color: white;
+                    border: 1px solid #eee;
+                }}
+                .step-content {{
+                    display: flex;
+                    flex-direction: row;
+                    gap: 30px;
+                    margin-top: 20px;
+                }}
+                .analysis {{ 
+                    flex: 1;
+                    background-color: #e8f5e9; /* Light Green */
+                    padding: 20px; 
+                    border-radius: 6px;
+                    border: 1px solid #c8e6c9;
+                    font-size: 1em;
+                }}
+                .image-container {{
+                    flex: 1;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    min-height: 200px;
+                }}
+                .image-container img {{ 
+                    max-width: 100%; 
+                    max-height: 300px;
+                    height: auto; 
+                    display: block; 
+                    border: 3px solid var(--primary-color); 
+                    border-radius: 6px;
+                    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+                }}
+                .final-result {{
+                    padding: 20px;
+                    background-color: #f0f8ff; /* Light Blue */
+                    border: 2px solid var(--primary-color);
+                    border-radius: 8px;
+                    text-align: center;
+                    font-size: 1.1em;
+                    font-weight: 600;
+                }}
             </style>
         </head>
         <body>
             <div class="container">
                 <h1>Laporan Proyek Akhir Mata Kuliah PCD: Deteksi Ikan Kerapu Sunu</h1>
-                <p><strong>Tanggal Proses:</strong> {datetime.datetime.now().strftime("%d-%m-%Y %H:%M:%S")}</p>
+                <p><strong>Waktu Proses:</strong> {datetime.datetime.now().strftime("%d-%m-%Y %H:%M:%S")}</p>
+                <div class="final-result">
+                    <strong>STATUS DETEKSI:</strong> {result_text_final}
+                </div>
                 
                 <div class="step">
                     <h2>1. Input Citra (A)</h2>
                     <div class="step-content">
-                        <div class="analysis"><strong>Analisa:</strong> Citra RGB awal diakuisisi.</div>
+                        <div class="analysis"><strong>Analisa:</strong> Citra RGB masukan. Citra ini menjadi dasar untuk semua pemrosesan selanjutnya.</div>
                         <div class="image-container"><img src="{img_a}" alt="Input Citra"></div>
                     </div>
                 </div>
@@ -386,7 +483,7 @@ class KerapuSunuDetector(QMainWindow):
                 <div class="step">
                     <h2>2. Pre-processing (Grayscale) (B)</h2>
                     <div class="step-content">
-                        <div class="analysis"><strong>Analisa:</strong> Citra dikonversi ke **Grayscale** dan diterapkan **Filter Median 5x5** untuk mereduksi *noise*.</div>
+                        <div class="analysis"><strong>Analisa:</strong> Citra dikonversi ke **Grayscale** dan diterapkan **Filter Median 5x5**. Langkah ini bertujuan untuk mereduksi *noise* yang ada pada citra masukan.</div>
                         <div class="image-container"><img src="{img_b}" alt="Pre-processing Grayscale"></div>
                     </div>
                 </div>
@@ -394,7 +491,7 @@ class KerapuSunuDetector(QMainWindow):
                 <div class="step">
                     <h2>3. Segmentasi Ikan (Mask Biner) (C)</h2>
                     <div class="step-content">
-                        <div class="analysis"><strong>Analisa:</strong> Mask Biner (putih = ikan, hitam = background) dihasilkan dari thresholding HSV. Operasi **Close** diterapkan untuk **menutup lubang hitam** pada tubuh ikan, memastikan kontinuitas.</div>
+                        <div class="analysis"><strong>Analisa:</strong> Mask Biner dihasilkan dari **Thresholding HSV** (merah/oranye). Operasi **Morfologi Close** diterapkan untuk **menutup lubang** pada tubuh ikan, memastikan area kontur ikan lengkap.</div>
                         <div class="image-container"><img src="{img_c}" alt="Segmentasi Mask Biner Ikan"></div>
                     </div>
                 </div>
@@ -402,16 +499,22 @@ class KerapuSunuDetector(QMainWindow):
                 <div class="step">
                     <h2>4. Segmentasi Ikan (Masked) (D)</h2>
                     <div class="step-content">
-                        <div class="analysis"><strong>Analisa:</strong> Mask Biner diterapkan pada citra RGB asli untuk mengisolasi ikan dengan *background* hitam.</div>
+                        <div class="analysis"><strong>Analisa:</strong> Mask Biner (C) diterapkan pada citra RGB asli. Hasil isolasi ikan ini digunakan untuk mendapatkan *Region of Interest* (ROI) yang tepat untuk analisis bentuk dan deteksi bintik.</div>
                         <div class="image-container"><img src="{img_d}" alt="Segmentasi Ikan Masked"></div>
                     </div>
                 </div>
 
                 <div class="step">
-                    <h2>5. Bintik Terdeteksi (Visualisasi) (E)</h2>
+                    <h2>5. Deteksi Bintik (Visualisasi) (E)</h2>
                     <div class="step-content">
                         <div class="analysis">
-                            <strong>Analisa:</strong> Bintik dideteksi dari piksel **Kecerahan Tinggi (Value > 200)**. **Masking Ganda (AND)** diterapkan dengan Mask Ikan (C) untuk memastikan **hanya bintik di dalam tubuh ikan** yang dihitung.
+                            <strong>Analisa:</strong> Visualisasi bintik berdasarkan **Area Kontur Bintik Kecerahan Tinggi (Value > 200)** setelah *Masking Ganda*. Setiap bintik yang dihitung ditandai dengan kotak merah.
+                            <br><br>
+                            Total Area Bintik Terukur: <strong>{current_spot_percent:.2f}%</strong>.
+                            <br>
+                            Ambang Batas Minimum: <strong>{MIN_TOTAL_SPOT_AREA_PERCENT:.2f}%</strong>.
+                            <br>
+                            Ambang Batas Ukuran Bintik Individual: <strong>{MIN_AREA_PER_SPOT_PERCENT:.2f}% - {MAX_AREA_PER_SPOT_PERCENT:.2f}%</strong> (dari area ikan).
                         </div>
                         <div class="image-container"><img src="{img_e}" alt="Bintik Terdeteksi Visual"></div>
                     </div>
@@ -421,8 +524,12 @@ class KerapuSunuDetector(QMainWindow):
                     <h2>6. Hasil Deteksi Akhir (F)</h2>
                     <div class="step-content">
                         <div class="analysis">
-                            <strong>Hasil Akhir:</strong> {self.result_text_string} <br><br>
-                            <strong>Kriteria Deteksi:</strong> Bentuk cocok **DAN** Total Area Bintik Terang melebihi **{MIN_TOTAL_SPOT_AREA_PERCENT}%** dari area ikan.
+                            <strong>Kriteria Deteksi Final:</strong> 
+                            <ul>
+                                <li>**Bentuk:** Circularity & Aspect Ratio ikan harus cocok dengan Kerapu Sunu.</li>
+                                <li>**Tekstur (Bintik):** Total area bintik terang harus melebihi ambang batas minimum.</li>
+                                <li>**Keputusan Akhir:** Jika Bentuk & Tekstur bintik cocok, objek ditandai dengan *bounding box* hijau.</li>
+                            </ul>
                         </div>
                         <div class="image-container"><img src="{img_f}" alt="Hasil Deteksi Akhir"></div>
                     </div>
@@ -432,8 +539,9 @@ class KerapuSunuDetector(QMainWindow):
         </html>
         """
         
+        # 3. Simpan File HTML
         options = QFileDialog.Options()
-        file_path, _ = QFileDialog.getSaveFileName(self, "Simpan Laporan HTML", "Laporan_Deteksi_Kerapu_Sunu_6Langkah.html",
+        file_path, _ = QFileDialog.getSaveFileName(self, "Simpan Laporan HTML", "Laporan_Deteksi_Kerapu_Sunu_Report.html",
                                                    "HTML Files (*.html);;All Files (*)", options=options)
         
         if file_path:
