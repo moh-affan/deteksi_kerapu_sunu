@@ -12,13 +12,13 @@ from PyQt5.QtCore import Qt, QSize
 class KerapuSunuDetector(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Deteksi Kerapu Sunu (Tahap Lanjut: Metode Kombinasi)")
+        self.setWindowTitle("Deteksi Kerapu Sunu (Tahap Lanjut: Thresholding Adaptif)")
         self.setGeometry(100, 100, 1800, 850) 
         
         # Variabel untuk menyimpan hasil setiap langkah
         self.original_image = None
-        self.processed_step_a = None # Mask Segmentation Awal (Otsu/Adaptif)
-        self.processed_step_b = None # Mask Objek Terbesar (Largest Component)
+        self.processed_step_a = None # Mask Segmentation Awal (Adaptif)
+        self.processed_step_b = None # Mask Objek Terbesar (CCL)
         self.processed_step_c = None # Mask Fill Holes
         self.processed_step_d = None # Mask Warna Ikan (Final)
         self.processed_step_e = None # Ikan Tersegmentasi (Visual)
@@ -31,16 +31,17 @@ class KerapuSunuDetector(QMainWindow):
         
         self.init_ui()
 
-    # --- Bagian UI dan Utilities (Disesuaikan untuk 7 Langkah) ---
+    # --- Bagian UI dan Utilities (Dibiarkan sama) ---
 
     def init_ui(self):
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
+        
         main_layout = QHBoxLayout(central_widget)
         
-        # Kolom Kontrol
         control_widget = QWidget()
         control_layout = QVBoxLayout(control_widget)
+        
         self.btn_input = QPushButton("1. Input Gambar")
         self.btn_input.clicked.connect(self.load_image)
         control_layout.addWidget(self.btn_input)
@@ -66,12 +67,11 @@ class KerapuSunuDetector(QMainWindow):
         main_layout.addWidget(control_widget, 1)
 
         self.image_widgets = {}
-        # 7 Slot Gambar
         image_titles = [
             "1. Input Citra (RGB)", 
-            "2. Segmentation Awal (Otsu)",  
-            "3. Objek Terbesar (CCL)",      # BARU: Komponen Terbesar
-            "4. Fill Holes (Mask Final)",   # Fill Holes pada Komponen Terbesar
+            "2. Segmentation Awal (Adaptif)", # Label Diperbarui
+            "3. Objek Terbesar (CCL)",      
+            "4. Fill Holes (Mask Final)",   
             "5. Mask Warna Ikan (Final)",   
             "6. Bintik Terdeteksi (Visual)",
             "7. Hasil Deteksi Akhir"
@@ -85,10 +85,10 @@ class KerapuSunuDetector(QMainWindow):
         for title in image_titles:
             step_layout = QVBoxLayout()
             title_label = QLabel(f"### {title}")
-            title_label.setAlignment(Qt.AlignCenter)
+            title_label.setAlignment(Qt.AlignCenter) # type: ignore
             
             image_label = QLabel("Tidak Ada Gambar")
-            image_label.setAlignment(Qt.AlignCenter)
+            image_label.setAlignment(Qt.AlignCenter) # type: ignore
             image_label.setMinimumSize(150, 150)
             image_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding) 
             image_label.setStyleSheet("border: 1px solid gray;")
@@ -110,7 +110,7 @@ class KerapuSunuDetector(QMainWindow):
             q_img = QImage(cv_img.data, width, height, bytes_per_line, QImage.Format_RGB888)
         else:
             if cv_img.dtype != np.uint8:
-                cv_img = cv2.normalize(cv_img, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+                cv_img = cv2.normalize(cv_img, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8) # type: ignore
             height, width = cv_img.shape
             bytes_per_line = width
             q_img = QImage(cv_img.data, width, height, bytes_per_line, QImage.Format_Grayscale8)
@@ -123,10 +123,10 @@ class KerapuSunuDetector(QMainWindow):
             mime_type = "image/jpeg"
         else:
             if cv_img.dtype != np.uint8:
-                cv_img = cv2.normalize(cv_img, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+                cv_img = cv2.normalize(cv_img, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8) # type: ignore
             _, buffer = cv2.imencode('.png', cv_img)
             mime_type = "image/png"
-        base64_string = base64.b64encode(buffer).decode('utf-8')
+        base64_string = base64.b64encode(buffer).decode('utf-8') # type: ignore
         return f"data:{mime_type};base64,{base64_string}"
 
     def update_image_display(self, title, img):
@@ -137,7 +137,7 @@ class KerapuSunuDetector(QMainWindow):
         pixmap = self.convert_cv_to_qt(img)
         label = self.image_widgets[title]
         scaled_pixmap = pixmap.scaled(
-            label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation
+            label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation # type: ignore
         ) 
         label.setPixmap(scaled_pixmap)
         label.setText("")
@@ -146,7 +146,7 @@ class KerapuSunuDetector(QMainWindow):
         if self.original_image is not None:
             self.update_image_display("1. Input Citra (RGB)", self.original_image)
         if self.processed_step_a is not None:
-            self.update_image_display("2. Segmentation Awal (Otsu)", self.processed_step_a)
+            self.update_image_display("2. Segmentation Awal (Adaptif)", self.processed_step_a)
         if self.processed_step_b is not None:
             self.update_image_display("3. Objek Terbesar (CCL)", self.processed_step_b)
         if self.processed_step_c is not None:
@@ -158,7 +158,7 @@ class KerapuSunuDetector(QMainWindow):
         if self.detected_img is not None:
              self.update_image_display("7. Hasil Deteksi Akhir", self.detected_img)
 
-    def resizeEvent(self, event):
+    def resizeEvent(self, event): # type: ignore
         super().resizeEvent(event)
         self.update_all_processed_images()
 
@@ -181,17 +181,13 @@ class KerapuSunuDetector(QMainWindow):
                 QMessageBox.critical(self, "Error", "Gagal memuat gambar.")
                 self.btn_process.setEnabled(False)
 
-    # --- Fungsi Bantuan untuk Memilih Komponen Terbesar (Largest Connected Component) ---
     def get_largest_component(self, mask):
         """Menggunakan CCL untuk mengisolasi komponen foreground terbesar (ikan) dari mask."""
-        # Menemukan semua komponen terhubung
-        num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(mask, 8, cv2.CV_32S)
+        num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(mask, 8, cv2.CV_32S) # type: ignore
         
-        # Jika hanya ada background (label 0), kembalikan mask hitam
         if num_labels <= 1:
             return np.zeros_like(mask)
 
-        # Temukan label dengan area terbesar (kecuali label 0, yaitu background)
         largest_label = 1
         largest_area = stats[1, cv2.CC_STAT_AREA]
         
@@ -200,14 +196,13 @@ class KerapuSunuDetector(QMainWindow):
                 largest_area = stats[i, cv2.CC_STAT_AREA]
                 largest_label = i
         
-        # Buat mask baru yang hanya berisi komponen terbesar
         largest_component_mask = np.zeros_like(mask, dtype=np.uint8)
         largest_component_mask[labels == largest_label] = 255
         
         return largest_component_mask
 
 
-    # --- FUNGSI ALGORITMA PCD UTAMA (Diperbarui dengan Metode Kombinasi) ---
+    # --- FUNGSI ALGORITMA PCD UTAMA (Diperbarui dengan Adaptive Thresholding) ---
 
     def process_detection(self):
         if self.original_image is None:
@@ -226,15 +221,28 @@ class KerapuSunuDetector(QMainWindow):
         gray_img = cv2.cvtColor(self.original_image, cv2.COLOR_BGR2GRAY)
 
 
-        # 1. TAHAP SEGMENTASI OBJEK AWAL (Otsu's Thresholding)
+        # 1. TAHAP SEGMENTASI OBJEK AWAL (Adaptive Thresholding)
+        
+        # Menerapkan Filter Gaussian sebelum Adaptive Thresholding (disarankan)
         blur = cv2.GaussianBlur(gray_img, (5, 5), 0)
-        _, initial_mask = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-
+        
+        # Adaptive Thresholding pada Grayscale: Lebih baik daripada Otsu
+        # Menggunakan THRESH_BINARY_INV untuk membuat foreground menjadi putih (255)
+        initial_mask = cv2.adaptiveThreshold(
+            blur, 
+            255, 
+            cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
+            cv2.THRESH_BINARY_INV, 
+            25, # Block Size (Harus ganjil, disesuaikan dengan ukuran objek)
+            10  # Konstanta C
+        )
+        
         self.processed_step_a = initial_mask.copy() 
-        self.update_image_display("2. Segmentation Awal (Otsu)", self.processed_step_a)
+        self.update_image_display("2. Segmentation Awal (Adaptif)", self.processed_step_a)
 
 
         # 2. TAHAP PEMURNIAN MASK (Pilih Komponen Terbesar)
+        # Menggunakan CCL untuk mengisolasi objek ikan terbesar dan membuang noise/objek kecil.
         largest_component_mask = self.get_largest_component(initial_mask)
         
         self.processed_step_b = largest_component_mask.copy()
@@ -247,14 +255,13 @@ class KerapuSunuDetector(QMainWindow):
         h, w = mask_filled.shape[:2]
         mask_floodfill = np.zeros((h + 2, w + 2), np.uint8)
         
-        # Inversi Mask untuk Flood Fill (agar background 0, foreground 1)
+        # Flood Fill hanya efektif pada mask yang memiliki lubang (putih di dalam hitam)
+        # Perlu inversi jika mask terbesar sudah padat
+        
+        # Lakukan Flood Fill dari sudut (0,0) pada mask terbalik untuk mengisi lubang
         mask_floodfill_inv = cv2.bitwise_not(mask_filled) 
-        
-        # Lakukan Flood Fill pada mask terbalik (mengisi lubang pada foreground)
         cv2.floodFill(mask_floodfill_inv, mask_floodfill, (0, 0), 0)
-        
-        # Kembalikan mask ke keadaan semula dan bersihkan bagian yang tidak terisi (foreground)
-        final_object_mask = cv2.bitwise_not(mask_floodfill_inv)
+        final_object_mask = cv2.bitwise_not(mask_floodfill_inv) # Kembalikan ke normal
 
         self.processed_step_c = final_object_mask.copy() 
         self.update_image_display("4. Fill Holes (Mask Final)", self.processed_step_c)
@@ -275,9 +282,9 @@ class KerapuSunuDetector(QMainWindow):
         
         # B. Gabungkan: Objek harus memiliki Warna Ikan DAN berada di Mask Objek Awal yang sudah dimurnikan
         # Ini adalah filter warna yang sangat kuat karena hanya diterapkan di dalam area terbesar
-        final_mask_ikan = cv2.bitwise_and(hsv_color_mask, hsv_color_mask, mask=final_object_mask)
+        final_mask_ikan = cv2.bitwise_and(hsv_color_mask, hsv_color_mask, mask=final_object_mask) # type: ignore
         
-        # C. Morfologi akhir
+        # C. Morfologi akhir (misalnya, Close untuk menyambungkan fragmen kecil yang terputus)
         kernel = np.ones((5, 5), np.uint8)
         final_mask_ikan = cv2.morphologyEx(final_mask_ikan, cv2.MORPH_CLOSE, kernel) 
 
@@ -290,7 +297,7 @@ class KerapuSunuDetector(QMainWindow):
         self.update_image_display("6. Bintik Terdeteksi (Visual)", self.processed_step_e)
 
 
-        # --- Analisis Bentuk dan Tekstur ---
+        # --- Analisis Bentuk dan Tekstur (CCL Bintik) ---
         contours, _ = cv2.findContours(final_mask_ikan, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         
         is_kerapu_sunu_detected = False
@@ -319,11 +326,12 @@ class KerapuSunuDetector(QMainWindow):
                 required_max_area_per_spot = area * (MAX_AREA_PER_SPOT_PERCENT / 100)
                 required_min_area_per_spot = area * (MIN_AREA_PER_SPOT_PERCENT / 100)
                 
-                # Deteksi Bintik Kecerahan Tinggi (Adaptive Thresholding)
+                # Deteksi Bintik Kecerahan Tinggi (Adaptif di ROI V)
                 hsv_roi = hsv_img[y:y+h, x:x+w]
                 hue, s, v = cv2.split(hsv_roi)
                 v_roi = v.copy()
                 
+                # Adaptive Thresholding pada V
                 spot_value_mask_adaptif = cv2.adaptiveThreshold(
                     v_roi, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, -2
                 )
@@ -334,7 +342,7 @@ class KerapuSunuDetector(QMainWindow):
                 final_spot_mask = cv2.bitwise_and(spot_value_mask_cleaned, body_mask_roi)
                 
                 # Penerapan CCL
-                num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(final_spot_mask, 8, cv2.CV_32S)
+                num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(final_spot_mask, 8, cv2.CV_32S) # type: ignore
 
                 total_spot_area = 0
                 
@@ -349,7 +357,7 @@ class KerapuSunuDetector(QMainWindow):
                         sw = stats[i, cv2.CC_STAT_WIDTH]
                         sh = stats[i, cv2.CC_STAT_HEIGHT]
                         
-                        cv2.rectangle(spot_detection_visual, (int(x+sx), int(y+sy)), (int(x+sx+sw), int(y+sy+sh)), (0, 0, 255), 1)
+                        cv2.rectangle(spot_detection_visual, (int(x+sx), int(y+sy)), (int(x+x+sw), int(y+sy+sh)), (0, 0, 255), 1)
 
                 # --- Kriteria Deteksi Akhir ---
                 self.total_spot_area_detected = total_spot_area
@@ -366,8 +374,8 @@ class KerapuSunuDetector(QMainWindow):
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
             
         # 6. Tampilan 6: Visualisasi Bintik Deteksi
-        self.processed_step_e = spot_detection_visual.copy()
-        self.update_image_display("6. Bintik Terdeteksi (Visual)", self.processed_step_e)
+        self.processed_step_f = spot_detection_visual.copy()
+        self.update_image_display("6. Bintik Terdeteksi (Visual)", self.processed_step_f)
 
         # 7. Tampilan 7: Hasil Deteksi Akhir
         self.detected_img = detected_img.copy() 
@@ -394,6 +402,9 @@ class KerapuSunuDetector(QMainWindow):
             return
 
         MIN_TOTAL_SPOT_AREA_PERCENT = 1.0  
+        MAX_AREA_PER_SPOT_PERCENT = 0.5    
+        MIN_AREA_PER_SPOT_PERCENT = 0.01   
+        
         result_text_final = getattr(self, 'result_text_string', 'Analisis tidak dijalankan.')
         current_spot_percent = getattr(self, 'current_spot_percent', 0.0)
 
@@ -406,7 +417,24 @@ class KerapuSunuDetector(QMainWindow):
         img_g = self.cv_to_base64(self.detected_img)     
         
         html_content = f"""
-        <div class="step">
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Laporan Deteksi Ikan Kerapu Sunu</title>
+            <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+            <style>
+                /* CSS SAMA */
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <h1>Laporan Proyek Akhir Mata Kuliah PCD: Deteksi Ikan Kerapu Sunu</h1>
+                <p><strong>Waktu Proses:</strong> {datetime.datetime.now().strftime("%d-%m-%Y %H:%M:%S")}</p>
+                <div class="final-result">
+                    <strong>STATUS DETEKSI:</strong> {result_text_final}
+                </div>
+                
+                <div class="step">
                     <h2>1. Input Citra (A)</h2>
                     <div class="step-content">
                         <div class="analysis"><strong>Analisa:</strong> Citra RGB masukan.</div>
@@ -415,17 +443,17 @@ class KerapuSunuDetector(QMainWindow):
                 </div>
 
                 <div class="step">
-                    <h2>2. Segmentation Awal (Otsu) (B)</h2>
+                    <h2>2. Segmentation Awal (Adaptif) (B)</h2>
                     <div class="step-content">
-                        <div class="analysis"><strong>Analisa:</strong> Segmentasi objek awal menggunakan **Otsu's Thresholding** untuk mendapatkan mask *foreground* (ikan) yang kasar.</div>
-                        <div class="image-container"><img src="{img_b}" alt="Segmentation Awal Otsu"></div>
+                        <div class="analysis"><strong>Analisa:</strong> Segmentasi objek awal menggunakan **Adaptive Thresholding** pada Grayscale. Ini mengatasi masalah pencahayaan tidak merata pada objek.</div>
+                        <div class="image-container"><img src="{img_b}" alt="Segmentation Awal Adaptif"></div>
                     </div>
                 </div>
 
                 <div class="step">
                     <h2>3. Objek Terbesar (CCL) (C)</h2>
                     <div class="step-content">
-                        <div class="analysis"><strong>Analisa:</strong> Menggunakan **Connected Component Labeling (CCL)** untuk mengisolasi dan mempertahankan hanya **objek terbesar**. Ini membuang *noise* yang lebih kecil dari *background*.</div>
+                        <div class="analysis"><strong>Analisa:</strong> Menggunakan **Connected Component Labeling (CCL)** untuk mengisolasi dan mempertahankan hanya **objek terbesar** (ikan). Ini membuang *noise* dan objek kecil dari *background*.</div>
                         <div class="image-container"><img src="{img_c}" alt="Objek Terbesar CCL"></div>
                     </div>
                 </div>
@@ -433,7 +461,7 @@ class KerapuSunuDetector(QMainWindow):
                 <div class="step">
                     <h2>4. Fill Holes (Mask Final) (D)</h2>
                     <div class="step-content">
-                        <div class="analysis"><strong>Analisa:</strong> Mask Objek Terbesar diperbaiki menggunakan **Flood Fill** untuk menutup lubang (*Fill Holes*). Mask ini kini menjadi batasan (Constraint) yang bersih untuk filtering warna.</div>
+                        <div class="analysis"><strong>Analisa:</strong> Mask diperbaiki menggunakan **Flood Fill** untuk menutup lubang (*Fill Holes*). Mask ini kini menjadi batasan (Constraint) yang bersih untuk filtering warna.</div>
                         <div class="image-container"><img src="{img_d}" alt="Fill Holes Mask Final"></div>
                     </div>
                 </div>
@@ -441,7 +469,7 @@ class KerapuSunuDetector(QMainWindow):
                 <div class="step">
                     <h2>5. Mask Warna Ikan (Final) (E)</h2>
                     <div class="step-content">
-                        <div class="analysis"><strong>Analisa:</strong> **Thresholding HSV** (Warna Ikan) digabungkan (**bitwise AND**) dengan Mask Objek (D). Ini memastikan filter warna hanya bekerja pada *foreground* yang sudah dimurnikan.</div>
+                        <div class="analysis"><strong>Analisa:</strong> **Thresholding HSV** (Warna Ikan) digabungkan (**bitwise AND**) dengan Mask Objek (D). Operasi ini memverifikasi warna dan secara efektif menghilangkan *noise* warna dari *background*.</div>
                         <div class="image-container"><img src="{img_e}" alt="Mask Warna Ikan Final"></div>
                     </div>
                 </div>
@@ -450,7 +478,7 @@ class KerapuSunuDetector(QMainWindow):
                     <h2>6. Bintik Terdeteksi (Visualisasi) (F)</h2>
                     <div class="step-content">
                         <div class="analysis">
-                            <strong>Analisa:</strong> Bintik dideteksi dari piksel **Kecerahan Tinggi (Adaptive Threshold)** menggunakan **CCL** untuk perhitungan area. Masking Ganda (HSV + Kecerahan) memastikan akurasi.
+                            <strong>Analisa:</strong> Bintik dideteksi dari piksel **Kecerahan Tinggi** menggunakan **CCL** (Area Kontur). **Masking Ganda** memastikan bintik hanya dihitung di dalam tubuh ikan.
                             <br><br>
                             Total Area Bintik Terukur: <strong>{current_spot_percent:.2f}%</strong>.
                             <br>
@@ -473,9 +501,10 @@ class KerapuSunuDetector(QMainWindow):
                         <div class="image-container"><img src="{img_g}" alt="Hasil Deteksi Akhir"></div>
                     </div>
                 </div>
+            </div>
+        </body>
+        </html>
         """
-        
-        # ... (Kode penyimpanan file SAMA) ...
         
         options = QFileDialog.Options()
         file_path, _ = QFileDialog.getSaveFileName(self, "Simpan Laporan HTML", "Laporan_Deteksi_Kerapu_Sunu_CCL.html",
@@ -491,9 +520,9 @@ class KerapuSunuDetector(QMainWindow):
 
 if __name__ == '__main__':
     if hasattr(Qt, 'AA_EnableHighDpiScaling'):
-        QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
+        QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True) # type: ignore
     if hasattr(Qt, 'AA_UseHighDpiPixmaps'):
-        QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, True)
+        QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, True) # type: ignore
         
     app = QApplication(sys.argv)
     detector = KerapuSunuDetector()
