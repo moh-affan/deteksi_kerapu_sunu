@@ -31,7 +31,7 @@ class KerapuSunuDetector(QMainWindow):
         
         self.init_ui()
 
-    # --- Bagian UI dan Utilities (Dibiarkan sama) ---
+    # --- Bagian UI dan Utilities (SAMA) ---
 
     def init_ui(self):
         central_widget = QWidget()
@@ -69,7 +69,7 @@ class KerapuSunuDetector(QMainWindow):
         self.image_widgets = {}
         image_titles = [
             "1. Input Citra (RGB)", 
-            "2. Segmentation Awal (Adaptif)", # Label Diperbarui
+            "2. Segmentation Awal (Adaptif)", 
             "3. Objek Terbesar (CCL)",      
             "4. Fill Holes (Mask Final)",   
             "5. Mask Warna Ikan (Final)",   
@@ -171,7 +171,7 @@ class KerapuSunuDetector(QMainWindow):
         if file_path:
             self.original_image = cv2.imread(file_path)
             if self.original_image is not None:
-                self.processed_step_a = self.processed_step_b = self.processed_step_c = self.processed_step_d = self.processed_step_e = self.detected_img = None
+                self.processed_step_a = self.processed_step_b = self.processed_step_c = self.processed_step_d = self.processed_step_e = self.processed_step_f = self.detected_img = None
                 self.update_all_processed_images()
                 self.update_image_display("1. Input Citra (RGB)", self.original_image)
                 self.btn_process.setEnabled(True)
@@ -223,17 +223,15 @@ class KerapuSunuDetector(QMainWindow):
 
         # 1. TAHAP SEGMENTASI OBJEK AWAL (Adaptive Thresholding)
         
-        # Menerapkan Filter Gaussian sebelum Adaptive Thresholding (disarankan)
         blur = cv2.GaussianBlur(gray_img, (5, 5), 0)
         
-        # Adaptive Thresholding pada Grayscale: Lebih baik daripada Otsu
-        # Menggunakan THRESH_BINARY_INV untuk membuat foreground menjadi putih (255)
+        # Adaptive Thresholding pada Grayscale: Memisahkan foreground dari background
         initial_mask = cv2.adaptiveThreshold(
             blur, 
             255, 
             cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
             cv2.THRESH_BINARY_INV, 
-            25, # Block Size (Harus ganjil, disesuaikan dengan ukuran objek)
+            25, # Block Size 
             10  # Konstanta C
         )
         
@@ -242,7 +240,6 @@ class KerapuSunuDetector(QMainWindow):
 
 
         # 2. TAHAP PEMURNIAN MASK (Pilih Komponen Terbesar)
-        # Menggunakan CCL untuk mengisolasi objek ikan terbesar dan membuang noise/objek kecil.
         largest_component_mask = self.get_largest_component(initial_mask)
         
         self.processed_step_b = largest_component_mask.copy()
@@ -250,18 +247,13 @@ class KerapuSunuDetector(QMainWindow):
 
 
         # 3. TAHAP PERBAIKAN MASK (Fill Holes)
-        # Lakukan Fill Holes hanya pada komponen terbesar yang sudah terisolasi
         mask_filled = largest_component_mask.copy()
         h, w = mask_filled.shape[:2]
         mask_floodfill = np.zeros((h + 2, w + 2), np.uint8)
         
-        # Flood Fill hanya efektif pada mask yang memiliki lubang (putih di dalam hitam)
-        # Perlu inversi jika mask terbesar sudah padat
-        
-        # Lakukan Flood Fill dari sudut (0,0) pada mask terbalik untuk mengisi lubang
         mask_floodfill_inv = cv2.bitwise_not(mask_filled) 
         cv2.floodFill(mask_floodfill_inv, mask_floodfill, (0, 0), 0)
-        final_object_mask = cv2.bitwise_not(mask_floodfill_inv) # Kembalikan ke normal
+        final_object_mask = cv2.bitwise_not(mask_floodfill_inv) 
 
         self.processed_step_c = final_object_mask.copy() 
         self.update_image_display("4. Fill Holes (Mask Final)", self.processed_step_c)
@@ -269,7 +261,6 @@ class KerapuSunuDetector(QMainWindow):
 
         # 4. TAHAP SEGMENTASI WARNA IKAN (Filter HSV di dalam Mask Objek)
         
-        # A. Filter HSV (Mencari Warna Ikan Merah/Oranye)
         lower_red1 = np.array([0, 100, 100])
         upper_red1 = np.array([10, 255, 255])
         mask1 = cv2.inRange(hsv_img, lower_red1, upper_red1)
@@ -280,21 +271,19 @@ class KerapuSunuDetector(QMainWindow):
         
         hsv_color_mask = mask1 + mask2
         
-        # B. Gabungkan: Objek harus memiliki Warna Ikan DAN berada di Mask Objek Awal yang sudah dimurnikan
-        # Ini adalah filter warna yang sangat kuat karena hanya diterapkan di dalam area terbesar
+        # Gabungkan: Filter Warna AND Mask Objek (Filter warna diterapkan ke objek yang sudah terisolasi)
         final_mask_ikan = cv2.bitwise_and(hsv_color_mask, hsv_color_mask, mask=final_object_mask) # type: ignore
         
-        # C. Morfologi akhir (misalnya, Close untuk menyambungkan fragmen kecil yang terputus)
         kernel = np.ones((5, 5), np.uint8)
         final_mask_ikan = cv2.morphologyEx(final_mask_ikan, cv2.MORPH_CLOSE, kernel) 
 
         self.processed_step_d = final_mask_ikan.copy() 
         self.update_image_display("5. Mask Warna Ikan (Final)", self.processed_step_d)
 
-        # 5. Tampilan Segmentasi Masked
+        # 5. Tampilan Segmentasi Masked (Visualiasi Ikan Tersegmentasi)
         masked_fish = cv2.bitwise_and(self.original_image, self.original_image, mask=final_mask_ikan)
         self.processed_step_e = masked_fish.copy()
-        self.update_image_display("6. Bintik Terdeteksi (Visual)", self.processed_step_e)
+        self.update_image_display("6. Bintik Terdeteksi (Visual)", self.processed_step_e) # Label ini kini menunjukkan ikan tersegmentasi
 
 
         # --- Analisis Bentuk dan Tekstur (CCL Bintik) ---
@@ -304,8 +293,11 @@ class KerapuSunuDetector(QMainWindow):
         detected_img = self.original_image.copy()
         self.total_spot_area_detected = 0 
         area_of_detected_fish = 0
-        spot_detection_visual = np.zeros_like(self.original_image)
         
+        # NOTE: Mengubah processed_step_e menjadi visualisasi bintik (sesuai alur baru)
+        spot_detection_visual = np.zeros_like(self.original_image) 
+        self.processed_step_f = np.zeros_like(self.original_image) # Menggunakan F untuk visual bintik
+
         for contour in contours:
             area = cv2.contourArea(contour)
             if area < MIN_FISH_CONTOUR_AREA: continue 
@@ -331,7 +323,7 @@ class KerapuSunuDetector(QMainWindow):
                 hue, s, v = cv2.split(hsv_roi)
                 v_roi = v.copy()
                 
-                # Adaptive Thresholding pada V
+                # Adaptive Thresholding pada V untuk mendeteksi bintik
                 spot_value_mask_adaptif = cv2.adaptiveThreshold(
                     v_roi, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, -2
                 )
@@ -357,7 +349,8 @@ class KerapuSunuDetector(QMainWindow):
                         sw = stats[i, cv2.CC_STAT_WIDTH]
                         sh = stats[i, cv2.CC_STAT_HEIGHT]
                         
-                        cv2.rectangle(spot_detection_visual, (int(x+sx), int(y+sy)), (int(x+x+sw), int(y+sy+sh)), (0, 0, 255), 1)
+                        # Tandai bintik pada visualisasi (Kolom F)
+                        cv2.rectangle(spot_detection_visual, (int(x+sx), int(y+sy)), (int(x+sx+sw), int(y+sy+sh)), (0, 0, 255), 1)
 
                 # --- Kriteria Deteksi Akhir ---
                 self.total_spot_area_detected = total_spot_area
@@ -373,7 +366,7 @@ class KerapuSunuDetector(QMainWindow):
                     cv2.putText(detected_img, f'K. SUNU ({current_spot_percent:.2f}%)', (int(x), int(y - 10)), 
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
             
-        # 6. Tampilan 6: Visualisasi Bintik Deteksi
+        # 6. Tampilan 6: Visualisasi Bintik Deteksi (Kolom ini kini menunjukkan visual bintik)
         self.processed_step_f = spot_detection_visual.copy()
         self.update_image_display("6. Bintik Terdeteksi (Visual)", self.processed_step_f)
 
@@ -394,7 +387,7 @@ class KerapuSunuDetector(QMainWindow):
             
         self.btn_report.setEnabled(True)
 
-    # --- Fungsi Generate Laporan HTML (Disesuaikan untuk 7 Langkah) ---
+    # --- Fungsi Generate Laporan HTML (Disesuaikan untuk 7 Langkah + CSS Cantik) ---
 
     def generate_report(self):
         if self.original_image is None or self.detected_img is None:
@@ -413,7 +406,7 @@ class KerapuSunuDetector(QMainWindow):
         img_c = self.cv_to_base64(self.processed_step_b) 
         img_d = self.cv_to_base64(self.processed_step_c) 
         img_e = self.cv_to_base64(self.processed_step_d) 
-        img_f = self.cv_to_base64(self.processed_step_e) 
+        img_f = self.cv_to_base64(self.processed_step_f) # Visual Bintik
         img_g = self.cv_to_base64(self.detected_img)     
         
         html_content = f"""
@@ -423,7 +416,89 @@ class KerapuSunuDetector(QMainWindow):
             <title>Laporan Deteksi Ikan Kerapu Sunu</title>
             <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
             <style>
-                /* CSS SAMA */
+                :root {{
+                    --primary-color: #00796b; 
+                    --secondary-color: #004d40; 
+                    --accent-color: #ff9800; 
+                    --background-light: #f4f6f8;
+                }}
+                body {{ 
+                    font-family: 'Open Sans', sans-serif; 
+                    margin: 0; 
+                    padding: 0;
+                    background-color: var(--background-light);
+                    line-height: 1.6;
+                }}
+                .container {{
+                    max-width: 1100px;
+                    margin: 40px auto;
+                    padding: 40px;
+                    background-color: white;
+                    border-radius: 12px;
+                    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
+                }}
+                h1 {{ 
+                    color: var(--secondary-color); 
+                    border-bottom: 4px solid var(--primary-color); 
+                    padding-bottom: 15px; 
+                    text-align: center;
+                    font-weight: 800;
+                    margin-bottom: 40px;
+                }}
+                h2 {{ 
+                    color: var(--primary-color); 
+                    margin-top: 30px;
+                    border-left: 5px solid var(--accent-color);
+                    padding-left: 15px;
+                    font-weight: 700;
+                }}
+                .step {{ 
+                    margin-bottom: 40px; 
+                    padding: 20px;
+                    border-radius: 8px;
+                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+                    background-color: white;
+                    border: 1px solid #eee;
+                }}
+                .step-content {{
+                    display: flex;
+                    flex-direction: row;
+                    gap: 30px;
+                    margin-top: 20px;
+                }}
+                .analysis {{ 
+                    flex: 1;
+                    background-color: #e8f5e9; 
+                    padding: 20px; 
+                    border-radius: 6px;
+                    border: 1px solid #c8e6c9;
+                    font-size: 1em;
+                }}
+                .image-container {{
+                    flex: 1;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    min-height: 200px;
+                }}
+                .image-container img {{ 
+                    max-width: 100%; 
+                    max-height: 300px;
+                    height: auto; 
+                    display: block; 
+                    border: 3px solid var(--primary-color); 
+                    border-radius: 6px;
+                    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+                }}
+                .final-result {{
+                    padding: 20px;
+                    background-color: #f0f8ff; 
+                    border: 2px solid var(--primary-color);
+                    border-radius: 8px;
+                    text-align: center;
+                    font-size: 1.1em;
+                    font-weight: 600;
+                }}
             </style>
         </head>
         <body>
@@ -445,7 +520,7 @@ class KerapuSunuDetector(QMainWindow):
                 <div class="step">
                     <h2>2. Segmentation Awal (Adaptif) (B)</h2>
                     <div class="step-content">
-                        <div class="analysis"><strong>Analisa:</strong> Segmentasi objek awal menggunakan **Adaptive Thresholding** pada Grayscale. Ini mengatasi masalah pencahayaan tidak merata pada objek.</div>
+                        <div class="analysis"><strong>Analisa:</strong> Segmentasi objek awal menggunakan **Adaptive Thresholding** pada Grayscale. Metode ini mengatasi masalah pencahayaan tidak merata, menghasilkan mask *foreground* kasar.</div>
                         <div class="image-container"><img src="{img_b}" alt="Segmentation Awal Adaptif"></div>
                     </div>
                 </div>
