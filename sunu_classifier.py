@@ -82,10 +82,10 @@ class KerapuSunuDetector(QMainWindow):
         for title in image_titles:
             step_layout = QVBoxLayout()
             title_label = QLabel(f"### {title}")
-            title_label.setAlignment(Qt.AlignCenter)
+            title_label.setAlignment(Qt.AlignCenter) # type: ignore
             
             image_label = QLabel("Tidak Ada Gambar")
-            image_label.setAlignment(Qt.AlignCenter)
+            image_label.setAlignment(Qt.AlignCenter) # type: ignore
             image_label.setMinimumSize(150, 150)
             image_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding) 
             image_label.setStyleSheet("border: 1px solid gray;")
@@ -107,7 +107,7 @@ class KerapuSunuDetector(QMainWindow):
             q_img = QImage(cv_img.data, width, height, bytes_per_line, QImage.Format_RGB888)
         else:
             if cv_img.dtype != np.uint8:
-                cv_img = cv2.normalize(cv_img, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+                cv_img = cv2.normalize(cv_img, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8) # type: ignore
             height, width = cv_img.shape
             bytes_per_line = width
             q_img = QImage(cv_img.data, width, height, bytes_per_line, QImage.Format_Grayscale8)
@@ -120,10 +120,10 @@ class KerapuSunuDetector(QMainWindow):
             mime_type = "image/jpeg"
         else:
             if cv_img.dtype != np.uint8:
-                cv_img = cv2.normalize(cv_img, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+                cv_img = cv2.normalize(cv_img, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8) # type: ignore
             _, buffer = cv2.imencode('.png', cv_img)
             mime_type = "image/png"
-        base64_string = base64.b64encode(buffer).decode('utf-8')
+        base64_string = base64.b64encode(buffer).decode('utf-8') # type: ignore
         return f"data:{mime_type};base64,{base64_string}"
 
     def update_image_display(self, title, img):
@@ -134,7 +134,7 @@ class KerapuSunuDetector(QMainWindow):
         pixmap = self.convert_cv_to_qt(img)
         label = self.image_widgets[title]
         scaled_pixmap = pixmap.scaled(
-            label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation
+            label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation # type: ignore
         ) 
         label.setPixmap(scaled_pixmap)
         label.setText("")
@@ -153,7 +153,7 @@ class KerapuSunuDetector(QMainWindow):
         if self.detected_img is not None:
              self.update_image_display("F. Hasil Deteksi Akhir", self.detected_img)
 
-    def resizeEvent(self, event):
+    def resizeEvent(self, event): # type: ignore
         super().resizeEvent(event)
         self.update_all_processed_images()
 
@@ -211,7 +211,7 @@ class KerapuSunuDetector(QMainWindow):
         
         kernel = np.ones((5, 5), np.uint8)
         # Morfologi: OPEN (Hilangkan noise kecil), DILATE (Perluas sedikit)
-        final_mask_ikan = cv2.morphologyEx(final_mask_ikan, cv2.MORPH_OPEN, kernel)
+        final_mask_ikan = cv2.morphologyEx(final_mask_ikan, cv2.MORPH_OPEN, kernel) # type: ignore
         final_mask_ikan = cv2.dilate(final_mask_ikan, kernel, iterations=1)
         
         # --- PERBAIKAN: Menutup Lubang Hitam pada Mask Ikan (Kolom C) ---
@@ -554,9 +554,9 @@ class KerapuSunuDetector(QMainWindow):
 
 if __name__ == '__main__':
     if hasattr(Qt, 'AA_EnableHighDpiScaling'):
-        QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
+        QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True) # type: ignore
     if hasattr(Qt, 'AA_UseHighDpiPixmaps'):
-        QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, True)
+        QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, True) # type: ignore
         
     app = QApplication(sys.argv)
     detector = KerapuSunuDetector()

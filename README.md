@@ -1,12 +1,12 @@
-## **🐟 README: Deteksi Ikan Kerapu Sunu (PCD Klasik Non-ML)**
+# **🐟Deteksi Ikan Kerapu Sunu (PCD Klasik Non-ML)**
 
 **Nama Proyek:** Deteksi Ikan Kerapu Sunu (*Plectropomus leopardus*) dengan Pengolahan Citra Digital Klasik
 
-### **Deskripsi Singkat**
+## **Deskripsi Singkat**
 
 Proyek ini menghadirkan sistem deteksi objek yang **sepenuhnya berbasis Pengolahan Citra Digital (PCD) klasik**, dirancang untuk mengidentifikasi Ikan Kerapu Sunu (*Plectropomus leopardus*) di lingkungan akuatik. Sistem ini memadukan analisis **Warna, Bentuk, dan Tekstur Bintik** menggunakan metrik *scale-invariant* (persentase) untuk memastikan akurasi tanpa ketergantungan pada Machine Learning.
 
-### **Fitur Utama**
+## **Fitur Utama**
 
 * **UI Interaktif (PyQt5):** Antarmuka pengguna grafis yang mudah digunakan untuk memuat citra, memproses deteksi, dan menghasilkan laporan.  
 * **Analisis Multi-Fitur:** Klasifikasi didasarkan pada tiga kriteria utama:  
@@ -27,7 +27,7 @@ Proyek ini memerlukan Python 3.x dan pustaka berikut:
 
 Bash
 
-pip install opencv-python numpy PyQt5
+```pip install opencv-python numpy PyQt5```
 
 ---
 
@@ -61,4 +61,3 @@ Sistem memproses citra melalui tahapan yang divisualisasikan:
 | **C/D** | Segmentasi Warna & Masking | Isolasi Ikan (Mask Biner ditutup lubangnya). |
 | **E** | Deteksi Bintik (Visual) | **Analisis Kontur Kecerahan Tinggi** (Visualisasi *bounding box* bintik yang dihitung). |
 | **F** | Klasifikasi Akhir | **Validasi Bentuk** dan **Persentase Area Bintik**. |
-
